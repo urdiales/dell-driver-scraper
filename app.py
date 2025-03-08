@@ -95,10 +95,10 @@ def get_download_link(file_path, link_text):
     return href
 
 # Function to retrieve driver information for a Dell service tag
-def scrape_dell_drivers(service_tag):
+def get_dell_drivers(service_tag):
     """
     Retrieve driver information for a Dell service tag using Dell's official API
-    instead of web scraping to avoid anti-scraping measures.
+    without using any web scraping or browser automation.
     """
     import json
     import requests
@@ -114,7 +114,7 @@ def scrape_dell_drivers(service_tag):
     
     def log_message(message):
         """Helper function to log messages"""
-        with open(log_file, "a") as f:
+        with open(log_file, "a", encoding='utf-8') as f:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(f"[{timestamp}] {message}\n")
         st.info(message)
@@ -147,7 +147,7 @@ def scrape_dell_drivers(service_tag):
                     log_message(f"Product API response received: {len(str(product_data))} bytes")
                     
                     # Save the raw API response for debugging
-                    with open(f"logs/{service_tag}_product_api.json", "w") as f:
+                    with open(f"logs/{service_tag}_product_api.json", "w", encoding='utf-8') as f:
                         json.dump(product_data, f, indent=4)
                     
                     # Extract product name and other details
@@ -193,7 +193,7 @@ def scrape_dell_drivers(service_tag):
                         log_message(f"Driver API response received: {len(str(driver_data))} bytes")
                         
                         # Save the raw API response for debugging
-                        with open(f"logs/{service_tag}_driver_api.json", "w") as f:
+                        with open(f"logs/{service_tag}_driver_api.json", "w", encoding='utf-8') as f:
                             json.dump(driver_data, f, indent=4)
                         
                         # Process the driver data based on API response structure
@@ -438,10 +438,10 @@ if 'messages' not in st.session_state:
     st.session_state.messages = []
 
 # Scrape button
-if st.button("Scrape Driver Information"):
+if st.button("Retrieve Driver Information"):
     if service_tag:
         with st.spinner("Retrieving Dell driver information..."):
-            json_file, md_file = scrape_dell_drivers(service_tag)
+            json_file, md_file = get_dell_drivers(service_tag)
             
             if json_file and md_file:
                 st.success(f"Successfully retrieved driver information for service tag: {service_tag}")
