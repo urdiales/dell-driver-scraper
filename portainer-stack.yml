@@ -1,0 +1,37 @@
+name: dell-driver-scraper
+services:
+  dell-driver-scraper:
+    build:
+      context: ${STACK_DIR}
+      dockerfile: Dockerfile
+    container_name: dell-driver-scraper
+    ports:
+      - "8501:8501"
+    volumes:
+      - ${STACK_DIR}/data:/app/data
+      - ${STACK_DIR}/config:/app/config
+      - ${STACK_DIR}/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - dell-network
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - dell-network
+
+networks:
+  dell-network:
+    driver: bridge
+
+volumes:
+  ollama-data:
+    driver: local
