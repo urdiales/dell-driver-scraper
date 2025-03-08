@@ -102,6 +102,210 @@ def scrape_dell_drivers(service_tag):
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            )
+            page = context.new_page()
+            
+            # Add more logging
+            st.info(f"Starting scraping for service tag: {service_tag}")
+            
+            # Navigate to Dell support page
+            page.goto("https://www.dell.com/support/home/en-us")
+            
+            # Wait for page to load
+            page.wait_for_selector("#inpEntrySelection", timeout=60000)
+            st.info("Support page loaded successfully")
+            
+            # Enter service tag
+            page.fill("#inpEntrySelection", service_tag)
+            page.click("button.btn-primary")
+            
+            # Wait for results page to load with increased timeout
+            page.wait_for_load_state("networkidle", timeout=60000)
+            st.info(f"Navigated to: {page.url}")
+            
+            # Check if we're redirected to the product page
+            if "drivers" not in page.url:
+                # Try to find and click the Drivers & Downloads link with multiple selector attempts
+                selectors = [
+                    "a:has-text('Drivers & Downloads')",
+                    "a:has-text('Drivers')",
+                    "[data-testid='drivers-downloads-link']",
+                    "a.dds__link:has-text('Drivers')"
+                ]
+                
+                for selector in selectors:
+                    try:
+                        if page.query_selector(selector):
+                            st.info(f"Found drivers link with selector: {selector}")
+                            page.click(selector)
+                            page.wait_for_load_state("networkidle", timeout=60000)
+                            break
+                    except Exception as e:
+                        st.warning(f"Selector {selector} failed: {str(e)}")
+                        continue
+            
+            # Extract product information
+            product_info = {}
+            product_selectors = [
+                "h1.dds__mb-0",
+                "h1.page-title",
+                ".product-info h1"
+            ]
+            
+            for selector in product_selectors:
+                product_title_elem = page.query_selector(selector)
+                if product_title_elem:
+                    product_info["product_name"] = product_title_elem.inner_text().strip()
+                    st.info(f"Found product name: {product_info['product_name']}")
+                    break
+            
+            # Wait for driver table to load with multiple selector attempts
+            table_selectors = [
+                ".drivers-table",
+                ".driver-filter-table",
+                ".dds__table",
+                "table.drivers-list"
+            ]
+            
+            table_found = False
+            for selector in table_selectors:
+                try:
+                    if page.wait_for_selector(selector, timeout=10000):
+                        st.info(f"Found drivers table with selector: {selector}")
+                        table_found = True
+                        table_selector = selector
+                        break
+                except Exception:
+                    continue
+            
+            if not table_found:
+                # Take a screenshot for debugging
+                screenshot_path = f"logs/{service_tag}_debug_screenshot.png"
+                page.screenshot(path=screenshot_path)
+                st.warning(f"Could not find drivers table. Debug screenshot saved to {screenshot_path}")
+                st.info("Trying to get page content for debugging")
+                page_content = page.content()
+                with open(f"logs/{service_tag}_page_content.html", "w", encoding="utf-8") as f:
+                    f.write(page_content)
+                
+                # Try a different approach - look for any driver elements
+                driver_rows = page.query_selector_all("tr, .driver-item, .driver-card")
+                if not driver_rows:
+                    raise Exception("No driver information found on the page")
+                st.info(f"Found {len(driver_rows)} potential driver items using alternative selector")
+            else:
+                # Give the page extra time to fully load
+                time.sleep(5)
+                
+                # Extract all drivers based on the found table selector
+                if table_selector == ".drivers-table":
+                    driver_rows = page.query_selector_all(f"{table_selector} tbody tr")
+                else:
+                    # Try different row selectors based on the table
+                    driver_rows = page.query_selector_all(f"{table_selector} tr, {table_selector} .driver-item")
+            
+            st.info(f"Found {len(driver_rows)} driver rows")
+            
+            # Define possible selectors for different fields
+            selector_map = {
+                "name": [".driver-name-title", ".driver-name", "td:first-child", "[data-testid='driver-name']"],
+                "category": [".driver-category", "[data-testid='driver-category']", "td:nth-child(2)"],
+                "version": [".driver-version", "[data-testid='driver-version']", "td:nth-child(3)"],
+                "release_date": [".driver-date", "[data-testid='driver-date']", "td:nth-child(4)"],
+                "importance": [".driver-importance", "[data-testid='driver-importance']", "td:nth-child(5)"],
+                "download": ["a.driver-download-btn", "[data-testid='download-button']", "a:has-text('Download')"],
+                "description": [".driver-description", "[data-testid='driver-description']", "td:nth-child(6)"]
+            }
+            
+            for idx, row in enumerate(driver_rows):
+                driver = {}
+                
+                # Try each field with multiple selectors
+                for field, selectors in selector_map.items():
+                    for selector in selectors:
+                        try:
+                            elem = row.query_selector(selector)
+                            if elem:
+                                if field == "download":
+                                    download_url = elem.get_attribute("href")
+                                    if download_url:
+                                        driver["download_url"] = download_url
+                                        if not driver["download_url"].startswith("http"):
+                                            driver["download_url"] = "https://www.dell.com" + driver["download_url"]
+                                        break
+                                else:
+                                    driver[field] = elem.inner_text().strip()
+                                    break
+                        except Exception:
+                            continue
+                
+                # Only add drivers that have at least a name
+                if driver and "name" in driver and driver["name"]:
+                    results.append(driver)
+                    st.info(f"Added driver: {driver.get('name', 'Unknown')}")
+            
+            browser.close()
+    
+    except Exception as e:
+        st.error(f"Error during scraping: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
+        return None, None
+    
+    if not results:
+        st.warning("No driver information found. The website structure may have changed.")
+        return None, None
+    
+    # Create a timestamp for the file names
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Create JSON output
+    output = {
+        "service_tag": service_tag,
+        "product_info": product_info,
+        "timestamp": datetime.now().isoformat(),
+        "drivers": results
+    }
+    
+    # Save JSON to file
+    json_filename = f"data/json/{service_tag}_{timestamp}.json"
+    with open(json_filename, 'w', encoding='utf-8') as f:
+        json.dump(output, f, indent=4)
+    
+    # Convert to Markdown
+    markdown_content = f"# Dell Driver Information for {service_tag}\n\n"
+    markdown_content += f"## Product: {product_info.get('product_name', 'Unknown')}\n\n"
+    markdown_content += f"**Date Scraped:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    markdown_content += "## Available Drivers\n\n"
+    
+    for idx, driver in enumerate(results, 1):
+        markdown_content += f"### {idx}. {driver.get('name', 'Unknown Driver')}\n\n"
+        markdown_content += f"**Category:** {driver.get('category', 'N/A')}\n\n"
+        markdown_content += f"**Version:** {driver.get('version', 'N/A')}\n\n"
+        markdown_content += f"**Release Date:** {driver.get('release_date', 'N/A')}\n\n"
+        markdown_content += f"**Importance:** {driver.get('importance', 'N/A')}\n\n"
+        
+        if 'description' in driver and driver['description']:
+            markdown_content += f"**Description:** {driver.get('description', 'N/A')}\n\n"
+        
+        if 'download_url' in driver and driver['download_url']:
+            markdown_content += f"**Download URL:** [{driver.get('download_url', '#')}]({driver.get('download_url', '#')})\n\n"
+        
+        markdown_content += "---\n\n"
+    
+    # Save Markdown to file
+    md_filename = f"data/markdown/{service_tag}_{timestamp}.md"
+    with open(md_filename, 'w', encoding='utf-8') as f:
+        f.write(markdown_content)
+    
+    return json_filename, md_filename
+    results = []
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
             context = browser.new_context()
             page = context.new_page()
             
