@@ -8,6 +8,7 @@ import time
 import requests
 from PIL import Image
 from io import BytesIO
+import random
 
 # Set page configuration
 st.set_page_config(
@@ -105,6 +106,7 @@ def get_dell_drivers(service_tag):
     import time
     from datetime import datetime
     import os
+    import random
     
     # Create log directory if it doesn't exist
     os.makedirs("logs", exist_ok=True)
@@ -126,20 +128,41 @@ def get_dell_drivers(service_tag):
     results = []
     
     try:
+        # Enhanced headers that mimic a real browser more closely
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": f"https://www.dell.com/support/home/en-us/product-support/servicetag/{service_tag}/overview",
+            "Origin": "https://www.dell.com",
+            "sec-ch-ua": '"Not-A.Brand";v="99", "Chromium";v="122", "Google Chrome";v="122"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "Connection": "keep-alive",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+        }
+        
+        # Add a session cookie to make the request look more legitimate
+        session = requests.Session()
+        session.cookies.set("dell-cookie-consent", "1", domain=".dell.com", path="/")
+        session.cookies.set("_abck", f"random_value_{int(time.time())}", domain=".dell.com", path="/")
+        
         # First, try to get product information
         product_api_url = f"https://www.dell.com/support/components/product/api/{service_tag}?isRefresh=false"
         
         log_message(f"Fetching product info from: {product_api_url}")
         
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json",
-            "Referer": "https://www.dell.com/support/home",
-            "Origin": "https://www.dell.com"
-        }
-        
         try:
-            product_response = requests.get(product_api_url, headers=headers, timeout=30)
+            # Add a small random delay to make requests appear more human-like
+            time.sleep(random.uniform(1.0, 2.5))
+            
+            product_response = session.get(product_api_url, headers=headers, timeout=30)
+            
+            log_message(f"Product API returned status code: {product_response.status_code}")
             
             if product_response.status_code == 200:
                 try:
@@ -164,7 +187,7 @@ def get_dell_drivers(service_tag):
                 except Exception as e:
                     log_message(f"Error parsing product API response: {str(e)}")
             else:
-                log_message(f"Product API returned status code: {product_response.status_code}")
+                log_message(f"Response content: {product_response.text[:200]}...")
                 
         except Exception as e:
             log_message(f"Error calling product API: {str(e)}")
@@ -175,8 +198,11 @@ def get_dell_drivers(service_tag):
         # Try multiple API endpoints as Dell has several
         api_endpoints = [
             f"https://www.dell.com/support/driver-api/drivers/driverslist/{service_tag}",
+            f"https://www.dell.com/support/driver-api/en-us/driverslist/{service_tag}",
             f"https://www.dell.com/support/component-api/drivers/list/{service_tag}",
-            f"https://www.dell.com/support/home/api/drivers/downloads/{service_tag}"
+            f"https://www.dell.com/support/component-api/en-us/drivers/list/{service_tag}",
+            f"https://www.dell.com/support/home/api/drivers/downloads/{service_tag}",
+            f"https://www.dell.com/support/home/en-us/api/drivers/downloads/{service_tag}"
         ]
         
         driver_data_found = False
@@ -185,7 +211,15 @@ def get_dell_drivers(service_tag):
             log_message(f"Trying API endpoint: {api_url}")
             
             try:
-                driver_response = requests.get(api_url, headers=headers, timeout=30)
+                # Add different delay for each attempt to avoid rate limiting
+                time.sleep(random.uniform(1.5, 3.0))
+                
+                # Update referer for each request to look more legitimate
+                headers["Referer"] = f"https://www.dell.com/support/home/en-us/product-support/servicetag/{service_tag}/drivers"
+                
+                driver_response = session.get(api_url, headers=headers, timeout=30)
+                
+                log_message(f"Driver API returned status code: {driver_response.status_code}")
                 
                 if driver_response.status_code == 200:
                     try:
@@ -270,11 +304,49 @@ def get_dell_drivers(service_tag):
                     
                     except Exception as e:
                         log_message(f"Error parsing driver API response: {str(e)}")
+                elif driver_response.status_code == 403:
+                    log_message(f"Access forbidden. Response content: {driver_response.text[:200]}...")
                 else:
-                    log_message(f"Driver API returned status code: {driver_response.status_code}")
+                    log_message(f"Unexpected status code. Response content: {driver_response.text[:200]}...")
                     
             except Exception as e:
                 log_message(f"Error calling driver API: {str(e)}")
+                
+        # Try an alternative approach - direct product support page
+        if not driver_data_found:
+            log_message("All API attempts failed. Trying alternative approach...")
+            
+            try:
+                # Use a different approach - get the HTML of the drivers page and extract information
+                support_url = f"https://www.dell.com/support/home/en-us/product-support/servicetag/{service_tag}/drivers"
+                
+                # Update headers to look like a browser
+                headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+                
+                # Add a delay
+                time.sleep(random.uniform(1.0, 2.0))
+                
+                support_response = session.get(support_url, headers=headers, timeout=30)
+                
+                log_message(f"Support page returned status code: {support_response.status_code}")
+                
+                if support_response.status_code == 200:
+                    # Save the HTML for debugging
+                    with open(f"logs/{service_tag}_support_page.html", "w", encoding='utf-8') as f:
+                        f.write(support_response.text)
+                    
+                    # Extract product name from HTML if we don't have it yet
+                    if product_info["product_name"] == "Dell Device":
+                        import re
+                        title_match = re.search(r'<title>(.*?)</title>', support_response.text)
+                        if title_match:
+                            title = title_match.group(1)
+                            if " - " in title:
+                                product_info["product_name"] = title.split(" - ")[0].strip()
+                                log_message(f"Extracted product name from page title: {product_info['product_name']}")
+            
+            except Exception as e:
+                log_message(f"Error fetching support page: {str(e)}")
                 
         if not driver_data_found and product_info["product_name"] != "Dell Device":
             # If we have product info but no drivers, create a reference driver
