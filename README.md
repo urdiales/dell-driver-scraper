@@ -1,15 +1,16 @@
 # Dell Driver Scraper
 
-A professional application to scrape driver information from Dell's support website using a service tag or product ID. The application provides a user-friendly interface to view and download driver information as JSON and Markdown files, and allows chatting with the data using Ollama.
+A professional application to retrieve driver information from Dell's support website using a service tag or product ID. The application provides a user-friendly interface to view and download driver information as JSON and Markdown files, and allows chatting with the data using Ollama.
 
 ## Features
 
 - Clean, professional user interface with company logo support
-- Scrape driver information using Dell service tags
+- Retrieve driver information using Dell service tags
 - Export results in JSON and Markdown formats
 - Chat with the data using Ollama AI
 - Easy deployment with Docker and Docker Compose
 - Compatible with Portainer and Dockge for simplified management
+- Enhanced anti-blocking technology to ensure reliable data retrieval
 
 ## Screenshots
 
@@ -89,10 +90,21 @@ If you prefer to use Dockge for stack management:
 ## Usage Guide
 
 1. Enter a Dell service tag or product ID in the input field (e.g., GPN01Q2)
-2. Click "Scrape Driver Information"
-3. Wait for the scraping process to complete
+2. Click "Retrieve Driver Information"
+3. Wait for the retrieval process to complete
 4. View the results and download JSON or Markdown files
 5. Click "Start Ollama Chat" to ask questions about the driver information
+
+## How It Works
+
+The application uses Dell's official APIs to retrieve driver information with enhanced techniques:
+
+1. **Multiple API Approaches**: The system tries various Dell API endpoints to find the best source of driver data
+2. **Enhanced Browser Emulation**: Sophisticated request headers and session handling to avoid anti-bot measures
+3. **Intelligent Fallbacks**: When APIs are restricted, the system falls back to alternative methods
+4. **Comprehensive Logging**: Detailed logs for troubleshooting and debugging
+
+Even when direct API access isn't possible, the application will create a direct link to Dell's support site for the specific service tag.
 
 ## Project Structure
 
@@ -105,7 +117,7 @@ dell-driver-scraper/
 ├── README.md                # Documentation
 ├── config/                  # Configuration files
 │   └── company_logo.png     # Custom company logo (if uploaded)
-├── data/                    # Scraped data storage
+├── data/                    # Retrieved data storage
 │   ├── json/                # JSON output files
 │   └── markdown/            # Markdown output files
 └── logs/                    # Application logs
@@ -114,12 +126,14 @@ dell-driver-scraper/
 ## Troubleshooting
 
 - **Application not starting**: Check Docker logs with `docker compose logs`
-- **Scraping errors**: Verify the service tag is correct and try again
+- **Retrieval errors**: Verify the service tag is correct and try again
 - **Ollama not responding**: Ensure the Ollama container is running with `docker ps`
+- **Access issues**: Check the logs directory for detailed information about API responses
 
 ## Technical Details
 
-- Backend: Python with Streamlit and Playwright
+- Backend: Python with Streamlit and Requests
+- API Integration: Dell Support APIs with enhanced headers
 - AI Integration: Ollama API
 - Data Formats: JSON and Markdown
 - Deployment: Docker and Docker Compose
