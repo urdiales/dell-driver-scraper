@@ -578,4 +578,5 @@ if st.session_state.chat_active and st.session_state.chat_file:
 
 # Footer
 st.markdown("---")
-st.markdown("Developed with ❤️ using Streamlit and Dell APIs")
+# st.markdown("Developed with ❤️ using Streamlit and Dell APIs")
+st.markdown("Developed using Python, Streamlit and Dell APIs")
