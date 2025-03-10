@@ -14,7 +14,11 @@ A professional application to retrieve driver information from Dell's support we
 
 ## Screenshots
 
-![Dell Driver Scraper Screenshot](./images/screenshot1.png)
+![Dell Driver Scraper Screenshot 1](./images/screenshot1.png)
+
+![Dell Driver Scraper Screenshot 2](./images/screenshot2.png)
+
+![Dell Driver Scraper Screenshot 3](./images/screenshot3.png)
 
 ## Quick Start (3-Step Deployment)
 
