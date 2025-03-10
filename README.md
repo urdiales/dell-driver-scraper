@@ -14,7 +14,7 @@ A professional application to retrieve driver information from Dell's support we
 
 ## Screenshots
 
-![Dell Driver Scraper Screenshot](https://place-hold.it/800x500&text=Dell%20Driver%20Scraper)
+![Dell Driver Scraper Screenshot](./images/screenshot1.png)
 
 ## Quick Start (3-Step Deployment)
 
