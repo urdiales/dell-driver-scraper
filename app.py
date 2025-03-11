@@ -576,6 +576,4 @@ if st.session_state.chat_active and st.session_state.chat_file:
         with st.chat_message("assistant"):
             st.write(ollama_response)
 
-# Footer
-st.markdown("---")
-st.markdown("Developed using Python, Streamlit and Dell APIs")
+
